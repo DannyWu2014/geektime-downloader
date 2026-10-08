@@ -155,19 +155,19 @@ func (d *CourseDownloader) DownloadArticleNote(course geektime.Course, article g
 	return note.Download(d.ctx, d.geektimeClient, article, columnDir)
 }
 
-// DownloadAllNotes downloads notes of all articles in a text course, merged into a single markdown file.
+// DownloadAllNotes downloads notes of all articles in a text course, merged into a single markdown file, and downloads all illustrations.
 func (d *CourseDownloader) DownloadAllNotes(course geektime.Course) error {
 	columnDir, err := d.mkDownloadColumnDir(course.Title)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("正在导出专栏 《%s》 的所有笔记\n", course.Title)
+	fmt.Printf("正在导出专栏 《%s》 的所有笔记与配图\n", course.Title)
 	d.downloadingSpinner.Start()
 	defer d.downloadingSpinner.Stop()
 
 	onProgress := func(current, total int, articleTitle string) {
-		d.downloadingSpinner.Prefix = fmt.Sprintf("[ 正在扫描笔记 %d/%d 《%s》... ]", current, total, articleTitle)
+		d.downloadingSpinner.Prefix = fmt.Sprintf("[ 正在下载笔记与配图 %d/%d 《%s》... ]", current, total, articleTitle)
 	}
 
 	if err := note.DownloadAll(d.ctx, d.geektimeClient, course, columnDir, onProgress, d.waitRandomTime); err != nil {
@@ -175,7 +175,8 @@ func (d *CourseDownloader) DownloadAllNotes(course geektime.Course) error {
 	}
 
 	fileName := filepath.Join(columnDir, filenamify.Filenamify(course.Title)+"-笔记"+note.MDExtension)
-	fmt.Printf("\r专栏 《%s》 笔记下载完成: %s\n", course.Title, fileName)
+	imagesDir := filepath.Join(columnDir, note.ImagesFolderName)
+	fmt.Printf("\r专栏 《%s》 笔记与配图下载完成:\n- 笔记文件: %s\n- 配图目录: %s\n", course.Title, fileName, imagesDir)
 	return nil
 }
 

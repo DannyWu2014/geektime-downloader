@@ -93,6 +93,15 @@ func Download(ctx context.Context, html, title, dir string, aid int) error {
 	return nil
 }
 
+// ExtractImageURLs converts HTML to markdown and extracts all valid image URLs from it.
+func ExtractImageURLs(html string) ([]string, error) {
+	mdStr, err := getDefaultConverter().ConvertString(html)
+	if err != nil {
+		return nil, err
+	}
+	return findAllImages(mdStr), nil
+}
+
 func findAllImages(md string) (images []string) {
 	for _, matches := range imgRegexp.FindAllStringSubmatch(md, -1) {
 		if len(matches) == 3 {

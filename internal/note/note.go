@@ -3,13 +3,18 @@ package note
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/nicoxiang/geektime-downloader/internal/geektime"
 	"github.com/nicoxiang/geektime-downloader/internal/geektime/response"
+	"github.com/nicoxiang/geektime-downloader/internal/markdown"
+	"github.com/nicoxiang/geektime-downloader/internal/pkg/downloader"
 	"github.com/nicoxiang/geektime-downloader/internal/pkg/filenamify"
 	"github.com/nicoxiang/geektime-downloader/internal/pkg/logger"
 )
@@ -17,6 +22,8 @@ import (
 const (
 	// FolderName sub folder under column dir to save notes
 	FolderName = "笔记"
+	// ImagesFolderName sub folder under column dir to save images
+	ImagesFolderName = "配图"
 	// MDExtension ...
 	MDExtension = ".md"
 
@@ -76,7 +83,7 @@ func Download(ctx context.Context, client *geektime.Client, article geektime.Art
 }
 
 // DownloadAll fetches notes of all articles in the course, merges them into
-// <columnDir>/<course title>-笔记.md.
+// <columnDir>/<course title>-笔记.md, and downloads article illustrations into <columnDir>/配图/.
 func DownloadAll(
 	ctx context.Context,
 	client *geektime.Client,
@@ -91,9 +98,10 @@ func DownloadAll(
 	default:
 	}
 
-	logger.Infof("Begin download all course notes, courseID: %d, title: %s, total articles: %d",
+	logger.Infof("Begin download all course notes and images, courseID: %d, title: %s, total articles: %d",
 		course.ID, course.Title, len(course.Articles))
 
+	imagesDir := filepath.Join(columnDir, ImagesFolderName)
 	sections := make([]string, 0, len(course.Articles))
 	for i, article := range course.Articles {
 		select {
@@ -117,6 +125,11 @@ func DownloadAll(
 		sec := renderSection(article.Title, 2, res.Data.List)
 		sections = append(sections, sec)
 
+		// Download article illustrations directly into imagesDir
+		if err := downloadArticleImages(ctx, client, article.AID, article.Title, imagesDir); err != nil {
+			return err
+		}
+
 		if i < len(course.Articles)-1 && waitFn != nil {
 			waitFn()
 		}
@@ -128,8 +141,94 @@ func DownloadAll(
 		return err
 	}
 
-	logger.Infof("Finish download all course notes, courseID: %d, title: %s", course.ID, course.Title)
+	logger.Infof("Finish download all course notes and images, courseID: %d, title: %s", course.ID, course.Title)
 	return nil
+}
+
+func downloadArticleImages(
+	ctx context.Context,
+	client *geektime.Client,
+	articleID int,
+	articleTitle string,
+	imagesDir string,
+) error {
+	articleInfo, err := client.V1ArticleInfo(articleID)
+	if err != nil {
+		return err
+	}
+	if articleInfo.Data.ArticleContent == "" {
+		return nil
+	}
+
+	imageURLs, err := markdown.ExtractImageURLs(articleInfo.Data.ArticleContent)
+	if err != nil {
+		logger.Warnf("Failed to extract image URLs from article, articleID: %d, err: %v", articleID, err)
+		return nil
+	}
+	if len(imageURLs) == 0 {
+		return nil
+	}
+
+	if err := os.MkdirAll(imagesDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	prefix := getTitlePrefix(articleTitle, 10)
+	headers := make(map[string]string, 2)
+	headers[geektime.Origin] = geektime.DefaultBaseURL
+	headers[geektime.UserAgent] = geektime.DefaultUserAgent
+
+	seen := make(map[string]bool)
+	imgIndex := 1
+	for _, imgURL := range imageURLs {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		default:
+		}
+		if seen[imgURL] {
+			continue
+		}
+		seen[imgURL] = true
+
+		ext := getImageExt(imgURL)
+		fileName := fmt.Sprintf("%s_%02d%s", prefix, imgIndex, ext)
+		targetPath := filepath.Join(imagesDir, fileName)
+
+		if _, err := downloader.DownloadFileConcurrently(ctx, targetPath, imgURL, headers, 1); err != nil {
+			logger.Warnf("Failed to download image %s for articleID %d: %v", imgURL, articleID, err)
+		}
+		imgIndex++
+	}
+	return nil
+}
+
+// getTitlePrefix extracts up to maxRunes safe characters from title to use as image file prefix
+func getTitlePrefix(title string, maxRunes int) string {
+	cleaned := filenamify.Filenamify(title)
+	runes := []rune(cleaned)
+	if len(runes) > maxRunes {
+		runes = runes[:maxRunes]
+	}
+	prefix := strings.Trim(string(runes), "-_ ")
+	if prefix == "" {
+		prefix = "img"
+	}
+	return prefix
+}
+
+func getImageExt(imageURL string) string {
+	parsedURL, err := url.ParseRequestURI(imageURL)
+	if err != nil {
+		return ".jpg"
+	}
+	ext := strings.ToLower(path.Ext(parsedURL.Path))
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff":
+		return ext
+	default:
+		return ".jpg"
+	}
 }
 
 // render builds single article markdown content

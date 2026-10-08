@@ -67,6 +67,42 @@ func TestRenderCourse(t *testing.T) {
 	}
 }
 
+func TestGetTitlePrefix(t *testing.T) {
+	tests := []struct {
+		title string
+		want  string
+	}{
+		{"26 | 缓存异常（下）：如何解决缓存雪崩、击穿、穿透难题？", "26-缓存异常（下）"},
+		{"01 | 初识 Redis：它能用来做什么？", "01-初识Redis"},
+		{"开篇词 | 为什么要学Redis？", "开篇词-为什么要学R"},
+		{"结课测试", "结课测试"},
+		{"   ", "img"},
+	}
+	for _, tt := range tests {
+		got := getTitlePrefix(tt.title, 10)
+		if got != tt.want {
+			t.Errorf("getTitlePrefix(%q) = %q, want %q", tt.title, got, tt.want)
+		}
+	}
+}
+
+func TestGetImageExt(t *testing.T) {
+	tests := []struct {
+		url  string
+		want string
+	}{
+		{"https://static001.geekbang.org/resource/image/44/11/abc.jpg?x-oss-process=image", ".jpg"},
+		{"https://static001.geekbang.org/resource/image/44/11/abc.png", ".png"},
+		{"https://static001.geekbang.org/resource/image/44/11/abc", ".jpg"},
+	}
+	for _, tt := range tests {
+		got := getImageExt(tt.url)
+		if got != tt.want {
+			t.Errorf("getImageExt(%q) = %q, want %q", tt.url, got, tt.want)
+		}
+	}
+}
+
 // TestRenderSampleFile renders a captured API response when NOTE_SAMPLE is set,
 // e.g. NOTE_SAMPLE=../../../notelist.json go test ./internal/note -run Sample -v
 func TestRenderSampleFile(t *testing.T) {
