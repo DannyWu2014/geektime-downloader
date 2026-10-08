@@ -42,6 +42,31 @@ func TestRenderEmpty(t *testing.T) {
 	}
 }
 
+func TestRenderCourse(t *testing.T) {
+	sec1 := renderSection("01 | 第一讲", 2, []response.V3Note{
+		{
+			ID:      1,
+			Part:    "重点内容一",
+			Note:    "我的心得",
+			NewNote: `{"type":"note","list":[{"g":1,"c":0}]}`,
+		},
+	})
+	sec2 := renderSection("02 | 第二讲", 2, nil)
+	sec3 := renderSection("03 | 第三讲", 2, []response.V3Note{
+		{
+			ID:      2,
+			Part:    "重点内容三",
+			NewNote: `{"type":"line","list":[{"g":2,"c":0}]}`,
+		},
+	})
+
+	got := renderCourse("Redis核心技术与实战", []string{sec1, sec2, sec3})
+	want := "# Redis核心技术与实战\n\n## 01 | 第一讲\n\n- 重点内容一\n  - note: 我的心得\n\n## 02 | 第二讲\n\n## 03 | 第三讲\n\n- 重点内容三\n"
+	if got != want {
+		t.Errorf("renderCourse() =\n%q\nwant\n%q", got, want)
+	}
+}
+
 // TestRenderSampleFile renders a captured API response when NOTE_SAMPLE is set,
 // e.g. NOTE_SAMPLE=../../../notelist.json go test ./internal/note -run Sample -v
 func TestRenderSampleFile(t *testing.T) {

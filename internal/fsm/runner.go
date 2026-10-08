@@ -64,17 +64,19 @@ func (r *FSMRunner) Run() error {
 				}
 			}
 		case StateProductAction:
-			var index int
-			index, err = ui.ProductAction(r.selectedProduct)
+			var action int
+			action, err = ui.ProductAction(r.selectedProduct)
 			if err == nil {
-				switch index {
-				case 0:
+				switch action {
+				case ui.ActionReSelectCourse:
 					r.currentState = StateSelectProductType
-				case 1:
+				case ui.ActionDownloadAll:
 					err = r.handleDownloadAll()
-				case 2:
+				case ui.ActionDownloadAllNotes:
+					err = r.handleDownloadAllNotes()
+				case ui.ActionSelectArticle:
 					r.currentState = StateSelectArticle
-				case 3:
+				case ui.ActionSelectArticleNote:
 					r.currentState = StateSelectArticleNote
 				}
 			}
@@ -244,6 +246,16 @@ func (r *FSMRunner) handleSelectArticleNote(index int) error {
 	fmt.Printf("\r%s 笔记下载完成", a.Title)
 	time.Sleep(time.Second)
 	r.currentState = StateSelectArticleNote
+	return nil
+}
+
+// handleDownloadAllNotes manages downloading all notes of a selected course merged into one file.
+func (r *FSMRunner) handleDownloadAllNotes() error {
+	if err := r.courseDownloader.DownloadAllNotes(r.selectedProduct); err != nil {
+		return err
+	}
+	time.Sleep(time.Second)
+	r.currentState = StateProductAction
 	return nil
 }
 

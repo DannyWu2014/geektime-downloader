@@ -7,6 +7,14 @@ import (
 	"github.com/nicoxiang/geektime-downloader/internal/geektime"
 )
 
+const (
+	ActionReSelectCourse = iota
+	ActionDownloadAll
+	ActionDownloadAllNotes
+	ActionSelectArticle
+	ActionSelectArticleNote
+)
+
 type articleOpsOption struct {
 	Text  string
 	Value int
@@ -14,14 +22,15 @@ type articleOpsOption struct {
 
 func ProductAction(product geektime.Course) (int, error) {
 	options := make([]articleOpsOption, 3)
-	options[0] = articleOpsOption{"重新选择课程", 0}
+	options[0] = articleOpsOption{"重新选择课程", ActionReSelectCourse}
 	if geektime.IsTextCourse(product) {
-		options[1] = articleOpsOption{"下载当前专栏所有文章", 1}
-		options[2] = articleOpsOption{"选择文章", 2}
-		options = append(options, articleOpsOption{"选择文章下载笔记", 3})
+		options[1] = articleOpsOption{"下载当前专栏所有文章", ActionDownloadAll}
+		options[2] = articleOpsOption{"下载当前专栏所有笔记", ActionDownloadAllNotes}
+		options = append(options, articleOpsOption{"选择文章", ActionSelectArticle})
+		options = append(options, articleOpsOption{"选择文章下载笔记", ActionSelectArticleNote})
 	} else {
-		options[1] = articleOpsOption{"下载所有视频", 1}
-		options[2] = articleOpsOption{"选择视频", 2}
+		options[1] = articleOpsOption{"下载所有视频", ActionDownloadAll}
+		options[2] = articleOpsOption{"选择视频", ActionSelectArticle}
 	}
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}",
@@ -40,5 +49,5 @@ func ProductAction(product geektime.Course) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return index, nil
+	return options[index].Value, nil
 }

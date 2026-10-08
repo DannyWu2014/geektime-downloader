@@ -75,8 +75,83 @@ func Download(ctx context.Context, client *geektime.Client, article geektime.Art
 	return nil
 }
 
-// render builds markdown content, notes sorted by position in article
+// DownloadAll fetches notes of all articles in the course, merges them into
+// <columnDir>/<course title>-笔记.md.
+func DownloadAll(
+	ctx context.Context,
+	client *geektime.Client,
+	course geektime.Course,
+	columnDir string,
+	onProgress func(current, total int, articleTitle string),
+	waitFn func(),
+) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	default:
+	}
+
+	logger.Infof("Begin download all course notes, courseID: %d, title: %s, total articles: %d",
+		course.ID, course.Title, len(course.Articles))
+
+	sections := make([]string, 0, len(course.Articles))
+	for i, article := range course.Articles {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		default:
+		}
+
+		if onProgress != nil {
+			onProgress(i+1, len(course.Articles), article.Title)
+		}
+
+		res, err := client.NoteList(article.AID)
+		if err != nil {
+			return err
+		}
+		if res.Data.Page.More {
+			logger.Warnf("Article notes has more pages, only first page is saved, articleID: %d", article.AID)
+		}
+
+		sec := renderSection(article.Title, 2, res.Data.List)
+		sections = append(sections, sec)
+
+		if i < len(course.Articles)-1 && waitFn != nil {
+			waitFn()
+		}
+	}
+
+	content := renderCourse(course.Title, sections)
+	fileName := filepath.Join(columnDir, filenamify.Filenamify(course.Title)+"-笔记"+MDExtension)
+	if err := os.WriteFile(fileName, []byte(content), 0o644); err != nil {
+		return err
+	}
+
+	logger.Infof("Finish download all course notes, courseID: %d, title: %s", course.ID, course.Title)
+	return nil
+}
+
+// render builds single article markdown content
 func render(title string, notes []response.V3Note) string {
+	return renderSection(title, 1, notes)
+}
+
+// renderCourse merges all article sections under a course title
+func renderCourse(courseTitle string, articleSections []string) string {
+	var sb strings.Builder
+	sb.WriteString("# " + courseTitle + "\n\n")
+	for i, sec := range articleSections {
+		sb.WriteString(sec)
+		if i < len(articleSections)-1 {
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String()
+}
+
+// renderSection builds markdown for an article at the specified heading level
+func renderSection(title string, level int, notes []response.V3Note) string {
 	items := make([]item, 0, len(notes))
 	for _, n := range notes {
 		if it, ok := toItem(n); ok {
@@ -95,18 +170,19 @@ func render(title string, notes []response.V3Note) string {
 	})
 
 	var sb strings.Builder
-	sb.WriteString("# " + title + "\n")
+	prefix := strings.Repeat("#", level)
+	sb.WriteString(prefix + " " + title + "\n")
 	if len(items) > 0 {
 		sb.WriteString("\n")
-	}
-	for _, it := range items {
-		if it.part != "" {
-			sb.WriteString("- " + it.part + "\n")
-			if it.note != "" {
-				sb.WriteString("  - note: " + it.note + "\n")
+		for _, it := range items {
+			if it.part != "" {
+				sb.WriteString("- " + it.part + "\n")
+				if it.note != "" {
+					sb.WriteString("  - note: " + it.note + "\n")
+				}
+			} else if it.note != "" {
+				sb.WriteString("- note: " + it.note + "\n")
 			}
-		} else if it.note != "" {
-			sb.WriteString("- note: " + it.note + "\n")
 		}
 	}
 	return sb.String()

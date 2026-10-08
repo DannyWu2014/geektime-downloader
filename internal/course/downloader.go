@@ -155,6 +155,31 @@ func (d *CourseDownloader) DownloadArticleNote(course geektime.Course, article g
 	return note.Download(d.ctx, d.geektimeClient, article, columnDir)
 }
 
+// DownloadAllNotes downloads notes of all articles in a text course, merged into a single markdown file.
+func (d *CourseDownloader) DownloadAllNotes(course geektime.Course) error {
+	columnDir, err := d.mkDownloadColumnDir(course.Title)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("正在导出专栏 《%s》 的所有笔记\n", course.Title)
+	d.downloadingSpinner.Start()
+	defer d.downloadingSpinner.Stop()
+
+	onProgress := func(current, total int, articleTitle string) {
+		d.downloadingSpinner.Prefix = fmt.Sprintf("[ 正在扫描笔记 %d/%d 《%s》... ]", current, total, articleTitle)
+	}
+
+	if err := note.DownloadAll(d.ctx, d.geektimeClient, course, columnDir, onProgress, d.waitRandomTime); err != nil {
+		return err
+	}
+
+	fileName := filepath.Join(columnDir, filenamify.Filenamify(course.Title)+"-笔记"+note.MDExtension)
+	fmt.Printf("\r专栏 《%s》 笔记下载完成: %s\n", course.Title, fileName)
+	return nil
+}
+
+
 func increaseDownloadedTextArticleCount(total int, downloaded *int) {
 	current := *downloaded + 1
 	*downloaded = current
