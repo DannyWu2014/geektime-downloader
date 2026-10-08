@@ -23,6 +23,8 @@ const (
 	V3ArticleInfoPath = "/serv/v3/article/info"
 	// V3VideoPlayAuthPath used in normal video, daily lesson, qconplus video play auth
 	V3VideoPlayAuthPath = "/serv/v3/source_auth/video_play_auth"
+	// V3NoteListPath used in get underlines and notes of one article
+	V3NoteListPath = "/serv/v3/note/list"
 
 	// GeekBangCookieDomain ...
 	GeekBangCookieDomain = ".geekbang.org"
@@ -148,6 +150,27 @@ func (c *Client) VideoPlayAuth(articleID, sourceType int, videoID string) (strin
 		return "", err
 	}
 	return res.Data.PlayAuth, nil
+}
+
+// NoteList get underlines and notes of one article
+func (c *Client) NoteList(articleID int) (response.V3NoteListResponse, error) {
+	var res response.V3NoteListResponse
+	r := c.newRequest(
+		resty.MethodPost,
+		DefaultBaseURL,
+		V3NoteListPath,
+		nil,
+		map[string]interface{}{
+			"aid":  articleID,
+			"type": 1,
+			"size": 500,
+		},
+		&res,
+	)
+	if _, err := do(r); err != nil {
+		return response.V3NoteListResponse{}, err
+	}
+	return res, nil
 }
 
 // columnInfo get normal column info, like v3 product info

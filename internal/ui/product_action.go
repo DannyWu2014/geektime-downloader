@@ -18,6 +18,7 @@ func ProductAction(product geektime.Course) (int, error) {
 	if geektime.IsTextCourse(product) {
 		options[1] = articleOpsOption{"下载当前专栏所有文章", 1}
 		options[2] = articleOpsOption{"选择文章", 2}
+		options = append(options, articleOpsOption{"选择文章下载笔记", 3})
 	} else {
 		options[1] = articleOpsOption{"下载所有视频", 1}
 		options[2] = articleOpsOption{"选择视频", 2}

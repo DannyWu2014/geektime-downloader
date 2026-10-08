@@ -18,6 +18,7 @@ import (
 	"github.com/nicoxiang/geektime-downloader/internal/config"
 	"github.com/nicoxiang/geektime-downloader/internal/geektime"
 	"github.com/nicoxiang/geektime-downloader/internal/markdown"
+	"github.com/nicoxiang/geektime-downloader/internal/note"
 	"github.com/nicoxiang/geektime-downloader/internal/pdf"
 	"github.com/nicoxiang/geektime-downloader/internal/pkg/filenamify"
 	"github.com/nicoxiang/geektime-downloader/internal/pkg/files"
@@ -140,6 +141,18 @@ func (d *CourseDownloader) DownloadSingleVideoProduct(title string, articleID in
 		return err
 	}
 	return video.DownloadArticleVideo(d.ctx, d.geektimeClient, articleID, sourceType, columnDir, d.cfg.Quality, d.concurrency)
+}
+
+// DownloadArticleNote downloads underlines and notes of a single text article as markdown.
+func (d *CourseDownloader) DownloadArticleNote(course geektime.Course, article geektime.Article) error {
+	columnDir, err := d.mkDownloadColumnDir(course.Title)
+	if err != nil {
+		return err
+	}
+	d.downloadingSpinner.Prefix = fmt.Sprintf("[ 正在下载 《%s》 的笔记... ]", article.Title)
+	d.downloadingSpinner.Start()
+	defer d.downloadingSpinner.Stop()
+	return note.Download(d.ctx, d.geektimeClient, article, columnDir)
 }
 
 func increaseDownloadedTextArticleCount(total int, downloaded *int) {

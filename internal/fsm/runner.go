@@ -74,6 +74,8 @@ func (r *FSMRunner) Run() error {
 					err = r.handleDownloadAll()
 				case 2:
 					r.currentState = StateSelectArticle
+				case 3:
+					r.currentState = StateSelectArticleNote
 				}
 			}
 		case StateSelectArticle:
@@ -81,6 +83,12 @@ func (r *FSMRunner) Run() error {
 			index, err = ui.ArticleSelect(r.selectedProduct.Articles)
 			if err == nil {
 				err = r.handleSelectArticle(index, r.selectedProductType, r.selectedProduct)
+			}
+		case StateSelectArticleNote:
+			var index int
+			index, err = ui.ArticleSelect(r.selectedProduct.Articles)
+			if err == nil {
+				err = r.handleSelectArticleNote(index)
 			}
 		}
 
@@ -220,6 +228,22 @@ func (r *FSMRunner) handleSelectArticle(index int, selectedProductType ui.Produc
 	fmt.Printf("\r%s 下载完成", a.Title)
 	time.Sleep(time.Second)
 	r.currentState = StateSelectArticle
+	return nil
+}
+
+// handleSelectArticleNote downloads notes of the selected article, then goes back to the article list.
+func (r *FSMRunner) handleSelectArticleNote(index int) error {
+	if index == 0 {
+		r.currentState = StateProductAction
+		return nil
+	}
+	a := r.selectedProduct.Articles[index-1]
+	if err := r.courseDownloader.DownloadArticleNote(r.selectedProduct, a); err != nil {
+		return err
+	}
+	fmt.Printf("\r%s 笔记下载完成", a.Title)
+	time.Sleep(time.Second)
+	r.currentState = StateSelectArticleNote
 	return nil
 }
 
