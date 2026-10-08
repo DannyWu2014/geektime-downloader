@@ -39,6 +39,7 @@ type item struct {
 	paragraph int
 	offset    int
 	ctime     int64
+	subOrder  int // 0 for underline (part), 1 for note
 }
 
 // Download fetches notes of one article and writes them to
@@ -76,9 +77,9 @@ func Download(ctx context.Context, client *geektime.Client, article geektime.Art
 
 // render builds markdown content, notes sorted by position in article
 func render(title string, notes []response.V3Note) string {
-	items := make([]item, 0, len(notes))
+	var items []item
 	for _, n := range notes {
-		items = append(items, toItem(n))
+		items = append(items, toItems(n)...)
 	}
 	sort.SliceStable(items, func(i, j int) bool {
 		a, b := items[i], items[j]
@@ -88,7 +89,10 @@ func render(title string, notes []response.V3Note) string {
 		if a.offset != b.offset {
 			return a.offset < b.offset
 		}
-		return a.ctime < b.ctime
+		if a.ctime != b.ctime {
+			return a.ctime < b.ctime
+		}
+		return a.subOrder < b.subOrder
 	})
 
 	var sb strings.Builder
@@ -102,12 +106,9 @@ func render(title string, notes []response.V3Note) string {
 	return sb.String()
 }
 
-func toItem(n response.V3Note) item {
-	it := item{
-		text:      oneLine(n.Part),
-		paragraph: int(^uint(0) >> 1), // unknown position goes last
-		ctime:     n.Ctime,
-	}
+func toItems(n response.V3Note) []item {
+	paragraph := int(^uint(0) >> 1) // unknown position goes last
+	offset := 0
 
 	var nn newNote
 	isNote := n.Note != ""
@@ -116,17 +117,36 @@ func toItem(n response.V3Note) item {
 			isNote = nn.Type == typeNote
 		}
 		if len(nn.List) > 0 {
-			it.paragraph = nn.List[0].G
-			it.offset = nn.List[0].C
+			paragraph = nn.List[0].G
+			offset = nn.List[0].C
 		}
 	} else if n.NewNote != "" {
 		logger.Warnf("Failed to parse new_note, noteID: %d, err: %v", n.ID, err)
 	}
 
-	if isNote {
-		it.text = "note: " + oneLine(n.Note)
+	var res []item
+	partText := oneLine(n.Part)
+	if partText != "" {
+		res = append(res, item{
+			text:      partText,
+			paragraph: paragraph,
+			offset:    offset,
+			ctime:     n.Ctime,
+			subOrder:  0,
+		})
 	}
-	return it
+
+	if isNote && strings.TrimSpace(n.Note) != "" {
+		res = append(res, item{
+			text:      "note: " + oneLine(n.Note),
+			paragraph: paragraph,
+			offset:    offset,
+			ctime:     n.Ctime,
+			subOrder:  1,
+		})
+	}
+
+	return res
 }
 
 // oneLine keeps a note inside a single markdown list item

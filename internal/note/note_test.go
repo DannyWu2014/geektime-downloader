@@ -30,7 +30,7 @@ func TestRender(t *testing.T) {
 		},
 	}
 	got := render("26 | 缓存异常", notes)
-	want := "# 26 | 缓存异常\n\n- 同段更靠前\n- note: test\n- 缓存穿透是指\n"
+	want := "# 26 | 缓存异常\n\n- 同段更靠前\n- 服务降级，来应\n- note: test\n- 缓存穿透是指\n"
 	if got != want {
 		t.Errorf("render() =\n%q\nwant\n%q", got, want)
 	}
