@@ -289,25 +289,26 @@ func renderSection(title string, level int, notes []response.V3Note) string {
 				for _, line := range it.parts {
 					sb.WriteString("- " + formatListItem(line) + "\n")
 				}
-				for i, line := range it.notes {
-					if i == 0 {
-						sb.WriteString("  - note: " + line + "\n")
-					} else {
-						sb.WriteString("  - " + formatListItem(line) + "\n")
-					}
-				}
+				writeNoteItems(&sb, "  ", it.notes)
 			} else if len(it.notes) > 0 {
-				for i, line := range it.notes {
-					if i == 0 {
-						sb.WriteString("- note: " + line + "\n")
-					} else {
-						sb.WriteString("- " + formatListItem(line) + "\n")
-					}
-				}
+				writeNoteItems(&sb, "", it.notes)
 			}
 		}
 	}
 	return sb.String()
+}
+
+func writeNoteItems(sb *strings.Builder, indent string, notes []string) {
+	if len(notes) == 1 {
+		sb.WriteString(indent + "- note: " + notes[0] + "\n")
+		return
+	}
+	if len(notes) > 1 {
+		sb.WriteString(indent + "- note\n")
+		for _, line := range notes {
+			sb.WriteString(indent + "  - " + formatListItem(line) + "\n")
+		}
+	}
 }
 
 func toItem(n response.V3Note) (item, bool) {

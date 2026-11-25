@@ -74,13 +74,15 @@ func TestRenderMultilineAndLeadingDigit(t *testing.T) {
 		"- 300毫秒\n" +
 		"- 1、中文顿号\n" +
 		"- 1.5倍性能\n" +
-		"  - note: 1. 笔记第一行\n" +
-		"  - 2\\. 笔记第二行\n" +
-		"  - 10\\) 括号序号\n" +
-		"  - 普通笔记行\n" +
+		"  - note\n" +
+		"    - 1\\. 笔记第一行\n" +
+		"    - 2\\. 笔记第二行\n" +
+		"    - 10\\) 括号序号\n" +
+		"    - 普通笔记行\n" +
 		"- 0\\. 单独数字开头\n" +
-		"- note: 纯笔记第一行\n" +
-		"- 2\\. 纯笔记第二行\n"
+		"- note\n" +
+		"  - 纯笔记第一行\n" +
+		"  - 2\\. 纯笔记第二行\n"
 	if got != want {
 		t.Errorf("render() =\n%s\nwant\n%s", got, want)
 	}
