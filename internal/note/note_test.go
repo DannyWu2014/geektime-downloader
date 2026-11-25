@@ -1,10 +1,16 @@
 package note
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 
+	"github.com/nicoxiang/geektime-downloader/internal/geektime"
 	"github.com/nicoxiang/geektime-downloader/internal/geektime/response"
 )
 
@@ -119,4 +125,68 @@ func TestRenderSampleFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log("\n" + render("sample", res.Data.List))
+}
+
+func TestDownloadAllWaitsBetweenNoteListAndArticleInfo(t *testing.T) {
+	var events []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case geektime.V3NoteListPath:
+			events = append(events, "note_list")
+			_, _ = w.Write([]byte(`{"code":0,"data":{"page":{"more":false},"list":[{"id":1,"part":"重点","note":"笔记","new_note":"{\"type\":\"note\",\"list\":[{\"g\":1,\"c\":0}]}"}]}}`))
+		case geektime.V1ArticlePath:
+			events = append(events, "article_info")
+			_, _ = w.Write([]byte(`{"code":0,"data":{"article_content":"<p>text</p>"}}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	client := geektime.NewClient(nil)
+	client.SetBaseURL(srv.URL)
+	client.SetRequestInterval(0, 0)
+
+	course := geektime.Course{
+		ID:    1001,
+		Title: "测试专栏",
+		Articles: []geektime.Article{
+			{AID: 1, Title: "01 | 第一讲"},
+			{AID: 2, Title: "02 | 第二讲"},
+		},
+	}
+
+	tmpDir := t.TempDir()
+	err := DownloadAll(
+		context.Background(),
+		client,
+		course,
+		tmpDir,
+		nil,
+		func() {
+			events = append(events, "wait")
+		},
+	)
+	if err != nil {
+		t.Fatalf("DownloadAll failed: %v", err)
+	}
+
+	wantEvents := []string{
+		"note_list",
+		"wait",
+		"article_info",
+		"wait",
+		"note_list",
+		"wait",
+		"article_info",
+	}
+	if !reflect.DeepEqual(events, wantEvents) {
+		t.Errorf("events = %v, want %v", events, wantEvents)
+	}
+
+	outPath := filepath.Join(tmpDir, "测试专栏-笔记.md")
+	if _, err := os.Stat(outPath); err != nil {
+		t.Errorf("expected output file %s to exist: %v", outPath, err)
+	}
 }

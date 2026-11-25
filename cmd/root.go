@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -50,6 +51,11 @@ var rootCmd = &cobra.Command{
 		readCookies := config.ReadCookiesFromInput(&cfg)
 
 		geektimeClient = geektime.NewClient(readCookies)
+		maxJitter := time.Duration(0)
+		if cfg.Interval > 0 {
+			maxJitter = geektime.DefaultMaxRequestJitter
+		}
+		geektimeClient.SetRequestInterval(time.Duration(cfg.Interval)*time.Second, maxJitter)
 
 		runner := fsm.NewFSMRunner(cmd.Context(), &cfg, geektimeClient)
 		return runner.Run()

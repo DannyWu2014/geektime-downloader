@@ -373,5 +373,10 @@ func getVideoURLFromArticleContent(content string) (hasVideo bool, videoURL stri
 // waitRandomTime wait interval seconds of time plus a 2000ms max jitter
 func (d *CourseDownloader) waitRandomTime() {
 	randomMillis := d.cfg.Interval*1000 + d.waitRand.Intn(2000)
-	time.Sleep(time.Duration(randomMillis) * time.Millisecond)
+	timer := time.NewTimer(time.Duration(randomMillis) * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-d.ctx.Done():
+	case <-timer.C:
+	}
 }

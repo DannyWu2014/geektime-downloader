@@ -52,7 +52,7 @@ func (c *Client) V1EnterpriseArticleDetail(articleID string) (response.V1Enterpr
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return response.V1EnterpriseArticlesDetailResponse{}, err
 	}
 	return res, nil
@@ -72,7 +72,7 @@ func (c *Client) EnterpriseVideoPlayAuth(articleID, videoID string) (string, err
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return "", err
 	}
 	return res.Data.PlayAuth, nil
@@ -92,7 +92,7 @@ func (c *Client) enterpriseCourseInfo(productID int) (Course, error) {
 		&res,
 	)
 
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return Course{}, err
 	}
 
@@ -118,7 +118,7 @@ func (c *Client) enterpriseCourseArticles(productID int) ([]Article, error) {
 		&res,
 	)
 
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return nil, err
 	}
 

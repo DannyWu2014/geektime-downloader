@@ -76,7 +76,7 @@ func (c *Client) V1ArticleInfo(articleID int) (response.V1ArticleResponse, error
 	var res response.V1ArticleResponse
 	r := c.newRequest(
 		resty.MethodPost,
-		DefaultBaseURL,
+		c.apiBaseURL(),
 		V1ArticlePath,
 		nil,
 		map[string]interface{}{
@@ -87,7 +87,7 @@ func (c *Client) V1ArticleInfo(articleID int) (response.V1ArticleResponse, error
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return response.V1ArticleResponse{}, err
 	}
 	return res, nil
@@ -98,7 +98,7 @@ func (c *Client) ProductInfo(productID int) (response.V3ProductInfoResponse, err
 	var res response.V3ProductInfoResponse
 	r := c.newRequest(
 		resty.MethodPost,
-		DefaultBaseURL,
+		c.apiBaseURL(),
 		V3ProductInfoPath,
 		nil,
 		map[string]interface{}{
@@ -106,7 +106,7 @@ func (c *Client) ProductInfo(productID int) (response.V3ProductInfoResponse, err
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return response.V3ProductInfoResponse{}, err
 	}
 	return res, nil
@@ -117,7 +117,7 @@ func (c *Client) V3ArticleInfo(articleID int) (response.V3ArticleInfoResponse, e
 	var res response.V3ArticleInfoResponse
 	r := c.newRequest(
 		resty.MethodPost,
-		DefaultBaseURL,
+		c.apiBaseURL(),
 		V3ArticleInfoPath,
 		nil,
 		map[string]interface{}{
@@ -125,7 +125,7 @@ func (c *Client) V3ArticleInfo(articleID int) (response.V3ArticleInfoResponse, e
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return response.V3ArticleInfoResponse{}, err
 	}
 	return res, nil
@@ -136,7 +136,7 @@ func (c *Client) VideoPlayAuth(articleID, sourceType int, videoID string) (strin
 	var res response.V3VideoPlayAuthResponse
 	r := c.newRequest(
 		resty.MethodPost,
-		DefaultBaseURL,
+		c.apiBaseURL(),
 		V3VideoPlayAuthPath,
 		nil,
 		map[string]interface{}{
@@ -146,7 +146,7 @@ func (c *Client) VideoPlayAuth(articleID, sourceType int, videoID string) (strin
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return "", err
 	}
 	return res.Data.PlayAuth, nil
@@ -157,7 +157,7 @@ func (c *Client) NoteList(articleID int) (response.V3NoteListResponse, error) {
 	var res response.V3NoteListResponse
 	r := c.newRequest(
 		resty.MethodPost,
-		DefaultBaseURL,
+		c.apiBaseURL(),
 		V3NoteListPath,
 		nil,
 		map[string]interface{}{
@@ -167,7 +167,7 @@ func (c *Client) NoteList(articleID int) (response.V3NoteListResponse, error) {
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return response.V3NoteListResponse{}, err
 	}
 	return res, nil
@@ -178,7 +178,7 @@ func (c *Client) columnInfo(productID int) (Course, error) {
 	var res response.V3ColumnInfoResponse
 	r := c.newRequest(
 		resty.MethodPost,
-		DefaultBaseURL,
+		c.apiBaseURL(),
 		V3ColumnInfoPath,
 		nil,
 		map[string]interface{}{
@@ -187,7 +187,7 @@ func (c *Client) columnInfo(productID int) (Course, error) {
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return Course{}, err
 	}
 
@@ -205,7 +205,7 @@ func (c *Client) columnArticles(cid int) ([]Article, error) {
 	res := &response.V1ColumnArticlesResponse{}
 	r := c.newRequest(
 		resty.MethodPost,
-		DefaultBaseURL,
+		c.apiBaseURL(),
 		V1ColumnArticlesPath,
 		nil,
 		map[string]interface{}{
@@ -217,7 +217,7 @@ func (c *Client) columnArticles(cid int) ([]Article, error) {
 		},
 		res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return nil, err
 	}
 

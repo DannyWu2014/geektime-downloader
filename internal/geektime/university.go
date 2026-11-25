@@ -34,7 +34,7 @@ func (c *Client) UniversityClassInfo(classID int) (Course, error) {
 		&res,
 	)
 
-	resp, err := do(r)
+	resp, err := c.do(r)
 	if err != nil {
 		return p, err
 	}
@@ -83,7 +83,7 @@ func (c *Client) UniversityClassArticleDetail(classID, articleID int) (response.
 		&res,
 	)
 
-	_, err := do(r)
+	_, err := c.do(r)
 
 	return res, err
 }
@@ -102,7 +102,7 @@ func (c *Client) UniversityVideoPlayAuth(articleID, classID int) (response.V1Vid
 		},
 		&res,
 	)
-	if _, err := do(r); err != nil {
+	if _, err := c.do(r); err != nil {
 		return response.V1VideoPlayAuthResponse{}, err
 	}
 	return res, nil

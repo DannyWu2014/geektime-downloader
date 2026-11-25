@@ -125,6 +125,11 @@ func DownloadAll(
 		sec := renderSection(article.Title, 2, res.Data.List)
 		sections = append(sections, sec)
 
+		// Space out NoteList and V1ArticleInfo so each article does not fire two API calls back-to-back
+		if waitFn != nil {
+			waitFn()
+		}
+
 		// Download article illustrations directly into imagesDir
 		if err := downloadArticleImages(ctx, client, article.AID, article.Title, imagesDir); err != nil {
 			return err
@@ -152,6 +157,12 @@ func downloadArticleImages(
 	articleTitle string,
 	imagesDir string,
 ) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	default:
+	}
+
 	articleInfo, err := client.V1ArticleInfo(articleID)
 	if err != nil {
 		return err

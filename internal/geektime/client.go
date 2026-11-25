@@ -1,10 +1,13 @@
 package geektime
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -12,7 +15,9 @@ import (
 )
 
 const (
-	DefaultTimeout = 10 * time.Second
+	DefaultTimeout            = 10 * time.Second
+	DefaultMinRequestInterval = time.Second
+	DefaultMaxRequestJitter   = 2 * time.Second
 	// Origin ...
 	Origin = "Origin"
 	// UserAgent ...
@@ -23,8 +28,14 @@ const (
 
 // A Client manages communication with the Geektime API.
 type Client struct {
-	RestyClient *resty.Client
-	Cookies     []*http.Cookie
+	RestyClient        *resty.Client
+	Cookies            []*http.Cookie
+	baseURLOverride    string
+	rateMu             sync.Mutex
+	minRequestInterval time.Duration
+	maxRequestJitter   time.Duration
+	nextRequestAt      time.Time
+	rateRand           *rand.Rand
 }
 
 // ErrGeekTimeAPIBadCode ...
@@ -58,8 +69,62 @@ func NewClient(cs []*http.Cookie) *Client {
 		SetHeader(UserAgent, DefaultUserAgent).
 		SetLogger(logger.DiscardLogger{})
 
-	c := &Client{RestyClient: restyClient, Cookies: cs}
+	c := &Client{
+		RestyClient:        restyClient,
+		Cookies:            cs,
+		minRequestInterval: DefaultMinRequestInterval,
+		maxRequestJitter:   DefaultMaxRequestJitter,
+		rateRand:           rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
 	return c
+}
+
+// SetRequestInterval configures the minimum interval and max random jitter between API requests.
+func (c *Client) SetRequestInterval(minInterval, maxJitter time.Duration) {
+	if minInterval < 0 {
+		minInterval = 0
+	}
+	if maxJitter < 0 {
+		maxJitter = 0
+	}
+	c.rateMu.Lock()
+	defer c.rateMu.Unlock()
+	c.minRequestInterval = minInterval
+	c.maxRequestJitter = maxJitter
+}
+
+func (c *Client) waitRateLimit(ctx context.Context) error {
+	c.rateMu.Lock()
+	if c.minRequestInterval <= 0 && c.maxRequestJitter <= 0 {
+		c.rateMu.Unlock()
+		return nil
+	}
+	now := time.Now()
+	waitDur := time.Duration(0)
+	sendAt := now
+	if !c.nextRequestAt.IsZero() && now.Before(c.nextRequestAt) {
+		waitDur = c.nextRequestAt.Sub(now)
+		sendAt = c.nextRequestAt
+	}
+	gap := c.minRequestInterval
+	if c.maxRequestJitter > 0 {
+		gap += time.Duration(c.rateRand.Int63n(int64(c.maxRequestJitter)))
+	}
+	c.nextRequestAt = sendAt.Add(gap)
+	c.rateMu.Unlock()
+
+	if waitDur <= 0 {
+		return nil
+	}
+
+	timer := time.NewTimer(waitDur)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // newRequest new http request
@@ -85,8 +150,24 @@ func (c *Client) newRequest(
 	return r
 }
 
+// SetBaseURL overrides the default Geektime API base URL (primarily for testing).
+func (c *Client) SetBaseURL(baseURL string) {
+	c.baseURLOverride = baseURL
+}
+
+func (c *Client) apiBaseURL() string {
+	if c.baseURLOverride != "" {
+		return c.baseURLOverride
+	}
+	return DefaultBaseURL
+}
+
 // do perform http request
-func do(request *resty.Request) (*resty.Response, error) {
+func (c *Client) do(request *resty.Request) (*resty.Response, error) {
+	if err := c.waitRateLimit(request.Context()); err != nil {
+		return nil, err
+	}
+
 	logger.Infof("Http request start, method: %s, url: %s, request body: %v",
 		request.Method,
 		request.URL,
