@@ -86,6 +86,41 @@ func TestRenderMultilineAndLeadingDigit(t *testing.T) {
 	}
 }
 
+func TestFormatListItem(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"1. 第一点", `1\. 第一点`},
+		{"10) 第十点", `10\) 第十点`},
+		{"1.", `1\.`},
+		{"1.5倍", "1.5倍"},
+		{"300毫秒", "300毫秒"},
+		{"- 子项", `\- 子项`},
+		{"* 星号项", `\* 星号项`},
+		{"+ 加号项", `\+ 加号项`},
+		{"-10", "-10"},
+		{"*加粗*", "*加粗*"},
+		{"> 引用文本", `\> 引用文本`},
+		{">无空格引用", `\>无空格引用`},
+		{"# 一级标题", `\# 一级标题`},
+		{"### 三级标题", `\### 三级标题`},
+		{"#include <stdio.h>", "#include <stdio.h>"},
+		{"```go", "\\```go"},
+		{"~~~", `\~~~`},
+		{"---", `\---`},
+		{"***", `\***`},
+		{"___", `\___`},
+		{"- - -", `\- - -`},
+		{"普通文本", "普通文本"},
+	}
+	for _, tt := range tests {
+		if got := formatListItem(tt.in); got != tt.want {
+			t.Errorf("formatListItem(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestRenderCourse(t *testing.T) {
 	sec1 := renderSection("01 | 第一讲", 2, []response.V3Note{
 		{

@@ -363,10 +363,15 @@ func splitLines(s string) []string {
 	return lines
 }
 
-// formatListItem escapes a leading CommonMark ordered list marker (e.g. "1. " or "1) ")
-// by inserting a backslash before '.' or ')' so ProcessOn renders it cleanly as plain text
-// instead of a nested ordered list.
+// formatListItem escapes leading CommonMark block/list markers so ProcessOn
+// renders the line cleanly as plain text inside a single list item instead of
+// misparsing it as a nested list, heading, blockquote, thematic break, or code fence.
 func formatListItem(s string) string {
+	if s == "" {
+		return s
+	}
+
+	// Ordered list marker: digits followed by '.' or ')' and space/tab/EOL
 	i := 0
 	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
 		i++
@@ -376,5 +381,57 @@ func formatListItem(s string) string {
 			return s[:i] + `\` + s[i:]
 		}
 	}
+
+	// Blockquote marker: '>' (CommonMark does not require a trailing space)
+	if s[0] == '>' {
+		return `\` + s
+	}
+
+	// Unordered list marker: '-', '*', '+' followed by space/tab/EOL
+	if s[0] == '-' || s[0] == '*' || s[0] == '+' {
+		if len(s) == 1 || s[1] == ' ' || s[1] == '\t' {
+			return `\` + s
+		}
+	}
+
+	// ATX heading marker: 1-6 '#' followed by space/tab/EOL
+	if s[0] == '#' {
+		j := 0
+		for j < len(s) && j < 6 && s[j] == '#' {
+			j++
+		}
+		if j == len(s) || s[j] == ' ' || s[j] == '\t' {
+			return `\` + s
+		}
+	}
+
+	// Fenced code block: 3+ '`' or '~'
+	if strings.HasPrefix(s, "```") || strings.HasPrefix(s, "~~~") {
+		return `\` + s
+	}
+
+	// Thematic break: 3+ '-', '*', or '_' (ignoring spaces/tabs)
+	if isThematicBreak(s) {
+		return `\` + s
+	}
+
 	return s
+}
+
+func isThematicBreak(s string) bool {
+	if s[0] != '-' && s[0] != '*' && s[0] != '_' {
+		return false
+	}
+	marker := s[0]
+	count := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case marker:
+			count++
+		case ' ', '\t':
+		default:
+			return false
+		}
+	}
+	return count >= 3
 }
