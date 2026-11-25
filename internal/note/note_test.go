@@ -131,20 +131,24 @@ func TestRenderCourse(t *testing.T) {
 			Note:    "我的心得",
 			NewNote: `{"type":"note","list":[{"g":1,"c":0}]}`,
 		},
-	})
-	sec2 := renderSection("02 | 第二讲", 2, nil)
+	}, false)
+	sec2 := renderSection("02 | 第二讲", 2, nil, false)
 	sec3 := renderSection("03 | 第三讲", 2, []response.V3Note{
 		{
 			ID:      2,
 			Part:    "重点内容三",
 			NewNote: `{"type":"line","list":[{"g":2,"c":0}]}`,
 		},
-	})
+	}, false)
 
 	got := renderCourse("Redis核心技术与实战", []string{sec1, sec2, sec3})
-	want := "# Redis核心技术与实战\n\n## 01 | 第一讲\n\n- 重点内容一\n  - note: 我的心得\n\n## 02 | 第二讲\n\n## 03 | 第三讲\n\n- 重点内容三\n"
+	want := "# Redis核心技术与实战\n\n## 01 | 第一讲\n\n- 重点内容一\n  - note: 我的心得\n\n## 03 | 第三讲\n\n- 重点内容三\n"
 	if got != want {
 		t.Errorf("renderCourse() =\n%q\nwant\n%q", got, want)
+	}
+
+	if emptyGot := renderCourse("空专栏", []string{sec2}); emptyGot != "# 空专栏\n" {
+		t.Errorf("renderCourse(empty) = %q, want %q", emptyGot, "# 空专栏\n")
 	}
 }
 

@@ -122,8 +122,9 @@ func DownloadAll(
 			logger.Warnf("Article notes has more pages, only first page is saved, articleID: %d", article.AID)
 		}
 
-		sec := renderSection(article.Title, 2, res.Data.List)
-		sections = append(sections, sec)
+		if sec := renderSection(article.Title, 2, res.Data.List, false); sec != "" {
+			sections = append(sections, sec)
+		}
 
 		// Space out NoteList and V1ArticleInfo so each article does not fire two API calls back-to-back
 		if waitFn != nil {
@@ -244,29 +245,44 @@ func getImageExt(imageURL string) string {
 
 // render builds single article markdown content
 func render(title string, notes []response.V3Note) string {
-	return renderSection(title, 1, notes)
+	return renderSection(title, 1, notes, true)
 }
 
-// renderCourse merges all article sections under a course title
+// renderCourse merges all non-empty article sections under a course title
 func renderCourse(courseTitle string, articleSections []string) string {
+	nonEmpty := make([]string, 0, len(articleSections))
+	for _, sec := range articleSections {
+		if sec != "" {
+			nonEmpty = append(nonEmpty, sec)
+		}
+	}
+
 	var sb strings.Builder
-	sb.WriteString("# " + courseTitle + "\n\n")
-	for i, sec := range articleSections {
+	sb.WriteString("# " + courseTitle + "\n")
+	if len(nonEmpty) == 0 {
+		return sb.String()
+	}
+	sb.WriteString("\n")
+	for i, sec := range nonEmpty {
 		sb.WriteString(sec)
-		if i < len(articleSections)-1 {
+		if i < len(nonEmpty)-1 {
 			sb.WriteString("\n")
 		}
 	}
 	return sb.String()
 }
 
-// renderSection builds markdown for an article at the specified heading level
-func renderSection(title string, level int, notes []response.V3Note) string {
+// renderSection builds markdown for an article at the specified heading level.
+// When includeEmpty is false, articles with no renderable notes return an empty string.
+func renderSection(title string, level int, notes []response.V3Note, includeEmpty bool) string {
 	items := make([]item, 0, len(notes))
 	for _, n := range notes {
 		if it, ok := toItem(n); ok {
 			items = append(items, it)
 		}
+	}
+	if len(items) == 0 && !includeEmpty {
+		return ""
 	}
 	sort.SliceStable(items, func(i, j int) bool {
 		a, b := items[i], items[j]
