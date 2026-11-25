@@ -48,6 +48,44 @@ func TestRenderEmpty(t *testing.T) {
 	}
 }
 
+func TestRenderMultilineAndLeadingDigit(t *testing.T) {
+	notes := []response.V3Note{
+		{
+			ID:      1,
+			Part:    "第一行\n\n  2. 第二行  \r\n\r\n300毫秒\n1、中文顿号\n1.5倍性能",
+			Note:    "1. 笔记第一行\n\n2. 笔记第二行\n10) 括号序号\n普通笔记行",
+			NewNote: `{"type":"note","list":[{"g":1,"c":0}]}`,
+		},
+		{
+			ID:      2,
+			Part:    "0. 单独数字开头",
+			NewNote: `{"type":"line","list":[{"g":2,"c":0}]}`,
+		},
+		{
+			ID:      3,
+			Note:    "纯笔记第一行\n2. 纯笔记第二行",
+			NewNote: `{"type":"note","list":[{"g":3,"c":0}]}`,
+		},
+	}
+	got := render("测试多行", notes)
+	want := "# 测试多行\n\n" +
+		"- 第一行\n" +
+		"- 2\\. 第二行\n" +
+		"- 300毫秒\n" +
+		"- 1、中文顿号\n" +
+		"- 1.5倍性能\n" +
+		"  - note: 1. 笔记第一行\n" +
+		"  - 2\\. 笔记第二行\n" +
+		"  - 10\\) 括号序号\n" +
+		"  - 普通笔记行\n" +
+		"- 0\\. 单独数字开头\n" +
+		"- note: 纯笔记第一行\n" +
+		"- 2\\. 纯笔记第二行\n"
+	if got != want {
+		t.Errorf("render() =\n%s\nwant\n%s", got, want)
+	}
+}
+
 func TestRenderCourse(t *testing.T) {
 	sec1 := renderSection("01 | 第一讲", 2, []response.V3Note{
 		{

@@ -42,8 +42,8 @@ type newNote struct {
 }
 
 type item struct {
-	part      string
-	note      string
+	parts     []string
+	notes     []string
 	paragraph int
 	offset    int
 	ctime     int64
@@ -285,13 +285,25 @@ func renderSection(title string, level int, notes []response.V3Note) string {
 	if len(items) > 0 {
 		sb.WriteString("\n")
 		for _, it := range items {
-			if it.part != "" {
-				sb.WriteString("- " + it.part + "\n")
-				if it.note != "" {
-					sb.WriteString("  - note: " + it.note + "\n")
+			if len(it.parts) > 0 {
+				for _, line := range it.parts {
+					sb.WriteString("- " + formatListItem(line) + "\n")
 				}
-			} else if it.note != "" {
-				sb.WriteString("- note: " + it.note + "\n")
+				for i, line := range it.notes {
+					if i == 0 {
+						sb.WriteString("  - note: " + line + "\n")
+					} else {
+						sb.WriteString("  - " + formatListItem(line) + "\n")
+					}
+				}
+			} else if len(it.notes) > 0 {
+				for i, line := range it.notes {
+					if i == 0 {
+						sb.WriteString("- note: " + line + "\n")
+					} else {
+						sb.WriteString("- " + formatListItem(line) + "\n")
+					}
+				}
 			}
 		}
 	}
@@ -316,28 +328,53 @@ func toItem(n response.V3Note) (item, bool) {
 		logger.Warnf("Failed to parse new_note, noteID: %d, err: %v", n.ID, err)
 	}
 
-	partText := oneLine(n.Part)
-	var noteText string
-	if isNote && strings.TrimSpace(n.Note) != "" {
-		noteText = oneLine(n.Note)
+	partLines := splitLines(n.Part)
+	var noteLines []string
+	if isNote {
+		noteLines = splitLines(n.Note)
 	}
 
-	if partText == "" && noteText == "" {
+	if len(partLines) == 0 && len(noteLines) == 0 {
 		return item{}, false
 	}
 
 	return item{
-		part:      partText,
-		note:      noteText,
+		parts:     partLines,
+		notes:     noteLines,
 		paragraph: paragraph,
 		offset:    offset,
 		ctime:     n.Ctime,
 	}, true
 }
 
-// oneLine keeps a note inside a single markdown list item
-func oneLine(s string) string {
-	s = strings.TrimSpace(s)
+// splitLines splits text into trimmed non-empty lines so each line can be
+// rendered as its own markdown list item.
+func splitLines(s string) []string {
 	s = strings.ReplaceAll(s, "\r\n", "\n")
-	return strings.ReplaceAll(s, "\n", "<br>")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	raw := strings.Split(s, "\n")
+	lines := make([]string, 0, len(raw))
+	for _, line := range raw {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
+
+// formatListItem escapes a leading CommonMark ordered list marker (e.g. "1. " or "1) ")
+// by inserting a backslash before '.' or ')' so ProcessOn renders it cleanly as plain text
+// instead of a nested ordered list.
+func formatListItem(s string) string {
+	i := 0
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		i++
+	}
+	if i > 0 && i < len(s) && (s[i] == '.' || s[i] == ')') {
+		if i+1 == len(s) || s[i+1] == ' ' || s[i+1] == '\t' {
+			return s[:i] + `\` + s[i:]
+		}
+	}
+	return s
 }
